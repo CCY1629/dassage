@@ -20,7 +20,12 @@
 <main>
 <h1>問答</h1>
 <p class="desc">用問題的方式查詢研究結果。</p>
-<div class="soon"><strong>即將推出</strong>此功能還在準備中，敬請期待。</div>
+<div class="card">
+<h2>請輸入你的問題</h2>
+<textarea id="q" rows="3" maxlength="2000" placeholder="例如：哪個年齡層的憂鬱平均分數最高？" style="width:100%;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg);font:inherit;resize:vertical"></textarea>
+<div class="bar" style="margin:10px 0 0"><button id="send" class="btn" type="button">送出</button><span>回答只根據研究摘要表，摘要表沒有的內容會直接說明沒有。</span></div>
+<div id="answer" aria-live="polite" style="white-space:pre-wrap;word-break:break-word;margin-top:12px"></div>
+</div>
 <div class="bar" style="margin-top:16px"><button id="ping" class="btn" type="button">測試連線</button></div>
 <pre id="pingOut" aria-live="polite" style="white-space:pre-wrap;word-break:break-word;margin:0"></pre>
 <div class="bar" style="margin-top:16px"><button id="gemini" class="btn" type="button">測試 Gemini</button></div>
@@ -68,6 +73,28 @@ document.getElementById("gemini").onclick=async function(){
       :"無法連線到後端（"+e.message+"）。可能是網址有誤、Worker 尚未部署，或這個網站尚未列入後端允許的來源。";
   }finally{clearTimeout(timer);btn.disabled=false;}
 };
+(function(){
+  const q=document.getElementById("q"),btn=document.getElementById("send"),out=document.getElementById("answer");
+  async function send(){
+    const question=q.value.trim();
+    if(!question){out.textContent="請先輸入問題。";return;}
+    btn.disabled=true;q.disabled=true;out.textContent="回答中…";
+    const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),40000);
+    try{
+      const res=await fetch(API_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"ask",question}),signal:ctrl.signal});
+      const text=await res.text();let data=null;
+      try{data=JSON.parse(text);}catch(e){}
+      if(res.ok&&data&&typeof data.answer==="string")out.textContent=data.answer;
+      else out.textContent="無法取得回答（HTTP "+res.status+"）："+((data&&data.error&&data.error.message)||text||"沒有收到錯誤訊息");
+    }catch(e){
+      out.textContent=e.name==="AbortError"
+        ?"等待逾時（超過 40 秒沒有回應），請稍後再試。"
+        :"無法連線到後端（"+e.message+"）。請稍後再試。";
+    }finally{clearTimeout(timer);btn.disabled=false;q.disabled=false;}
+  }
+  btn.onclick=send;
+  q.addEventListener("keydown",e=>{if((e.ctrlKey||e.metaKey)&&e.key==="Enter")send();});
+})();
 </script>
 </body>
 </html>
