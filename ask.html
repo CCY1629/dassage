@@ -23,6 +23,8 @@
 <div class="soon"><strong>即將推出</strong>此功能還在準備中，敬請期待。</div>
 <div class="bar" style="margin-top:16px"><button id="ping" class="btn" type="button">測試連線</button></div>
 <pre id="pingOut" aria-live="polite" style="white-space:pre-wrap;word-break:break-word;margin:0"></pre>
+<div class="bar" style="margin-top:16px"><button id="gemini" class="btn" type="button">測試 Gemini</button></div>
+<pre id="geminiOut" aria-live="polite" style="white-space:pre-wrap;word-break:break-word;margin:0"></pre>
 </main>
 <footer class="site-footer"><div>第 1 組｜組員：陳政諭</div></footer>
 <script>
@@ -47,6 +49,22 @@ document.getElementById("ping").onclick=async function(){
   }catch(e){
     out.textContent=e.name==="AbortError"
       ?"連線逾時（超過 10 秒沒有回應）。"
+      :"無法連線到後端（"+e.message+"）。可能是網址有誤、Worker 尚未部署，或這個網站尚未列入後端允許的來源。";
+  }finally{clearTimeout(timer);btn.disabled=false;}
+};
+document.getElementById("gemini").onclick=async function(){
+  const btn=this,out=document.getElementById("geminiOut");
+  btn.disabled=true;out.textContent="詢問中…（可能需要幾秒）";
+  const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),30000);
+  try{
+    const res=await fetch(API_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"ask",question:"請用一句話自我介紹"}),signal:ctrl.signal});
+    const text=await res.text();let data=null;
+    try{data=JSON.parse(text);}catch(e){}
+    if(res.ok&&data&&typeof data.answer==="string")out.textContent=data.answer;
+    else out.textContent="失敗（HTTP "+res.status+"）："+((data&&data.error&&data.error.message)||text||"沒有收到錯誤訊息");
+  }catch(e){
+    out.textContent=e.name==="AbortError"
+      ?"連線逾時（超過 30 秒沒有回應）。"
       :"無法連線到後端（"+e.message+"）。可能是網址有誤、Worker 尚未部署，或這個網站尚未列入後端允許的來源。";
   }finally{clearTimeout(timer);btn.disabled=false;}
 };
