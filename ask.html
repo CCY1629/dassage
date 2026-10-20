@@ -21,6 +21,8 @@
 <h1>問答</h1>
 <p class="desc">用問題的方式查詢研究結果。</p>
 <div class="soon"><strong>即將推出</strong>此功能還在準備中，敬請期待。</div>
+<div class="bar" style="margin-top:16px"><button id="ping" class="btn" type="button">測試連線</button></div>
+<pre id="pingOut" aria-live="polite" style="white-space:pre-wrap;word-break:break-word;margin:0"></pre>
 </main>
 <footer class="site-footer"><div>第 1 組｜組員：陳政諭</div></footer>
 <script>
@@ -29,6 +31,25 @@ let t;try{t=localStorage.getItem("dassTheme");}catch(e){}
 if(!t)t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";
 function set(x){r.dataset.theme=x;b.textContent=x==="dark"?"☀️ 淺色模式":"🌙 暗黑模式";try{localStorage.setItem("dassTheme",x);}catch(e){}}
 set(t);b.onclick=()=>set(r.dataset.theme==="dark"?"light":"dark");})();
+</script>
+<script>
+const API_URL="https://dass-42.d84121629.workers.dev/";
+document.getElementById("ping").onclick=async function(){
+  const btn=this,out=document.getElementById("pingOut");
+  btn.disabled=true;out.textContent="連線中…";
+  const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),10000);
+  try{
+    const res=await fetch(API_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"test"}),signal:ctrl.signal});
+    const text=await res.text();let data=null;
+    try{data=JSON.parse(text);}catch(e){}
+    if(res.ok)out.textContent="連線成功（HTTP "+res.status+"）\n"+(data?JSON.stringify(data,null,2):text);
+    else out.textContent="後端回報錯誤（HTTP "+res.status+"）：\n"+((data&&data.error&&data.error.message)||text||"沒有收到錯誤訊息");
+  }catch(e){
+    out.textContent=e.name==="AbortError"
+      ?"連線逾時（超過 10 秒沒有回應）。"
+      :"無法連線到後端（"+e.message+"）。可能是網址有誤、Worker 尚未部署，或這個網站尚未列入後端允許的來源。";
+  }finally{clearTimeout(timer);btn.disabled=false;}
+};
 </script>
 </body>
 </html>
