@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>關於研究｜年齡與憂鬱、焦慮、壓力</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header"><nav class="nav" aria-label="主要導覽">
+<a class="brand" href="index.html">年齡與憂鬱、焦慮、壓力</a>
+<div class="links">
+<a href="index.html">首頁</a>
+<a href="results.html">研究結果</a>
+<a href="ask.html">問答</a>
+<a href="about.html" aria-current="page">關於研究</a>
+</div>
+<button id="theme" class="btn" type="button"></button>
+</nav></header>
+<main>
+<h1>關於研究</h1>
+<p class="desc">資料來源、研究方法與樣本限制。</p>
+<div class="card"><h2>資料來源</h2>
+<ul>
+<li>資料來自線上版「憂鬱焦慮壓力量表」（DASS）問卷，收集期間為 2017–2019 年。</li>
+<li>問卷開放給任何人填寫，填答者多是為了取得個人化結果而參與。</li>
+<li>只有在問卷結尾同意提供研究使用，並回答已誠實作答的人，才會納入資料集。</li>
+<li>本網頁讀取的是由本組整理的摘要統計試算表（各年齡層的人數、平均數、標準差與各嚴重度等級人數），並非逐筆的原始回答。</li>
+</ul></div>
+<div class="card"><h2>研究方法</h2>
+<ul>
+<li><b>量表：</b>DASS-42 共 42 題，憂鬱、焦慮、壓力三個分量表各 14 題。</li>
+<li><b>計分：</b>每題以 0–3 分計分，分量表總分範圍為 0–42，分數越高表示症狀越嚴重。</li>
+<li><b>年齡分組與嚴重度等級：</b>依摘要試算表的設定，分為正常、輕度、中度、重度、極重度五個等級。</li>
+<li><b>統計：</b>比較各年齡層在三個分量表的平均數，並以 t 分布計算 95% 信賴區間；另呈現各年齡層在各嚴重度等級的人數比例。</li>
+</ul></div>
+<div class="card"><h2>樣本限制</h2>
+<ul>
+<li>樣本來自自願填答的網路問卷，不是隨機抽樣，不能代表一般人口。</li>
+<li>各年齡層人數差異大，人數較少的年齡層估計較不穩定。</li>
+<li>量表為自陳式篩檢工具，分數不等於臨床診斷。</li>
+<li>本研究為相關比較，不能據此推論年齡與情緒困擾之間的因果關係。</li>
+</ul></div>
+</main>
+<footer class="site-footer"><div>第 1 組｜組員：陳政諭</div></footer>
+<script>
+(function(){const r=document.documentElement,b=document.getElementById("theme");
+let t;try{t=localStorage.getItem("dassTheme");}catch(e){}
+if(!t)t=matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";
+function set(x){r.dataset.theme=x;b.textContent=x==="dark"?"☀️ 淺色模式":"🌙 暗黑模式";try{localStorage.setItem("dassTheme",x);}catch(e){}}
+set(t);b.onclick=()=>set(r.dataset.theme==="dark"?"light":"dark");})();
+</script>
+</body>
+</html>

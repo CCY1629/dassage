@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>研究結果｜年齡與憂鬱、焦慮、壓力</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-header"><nav class="nav" aria-label="主要導覽">
+<a class="brand" href="index.html">年齡與憂鬱、焦慮、壓力</a>
+<div class="links">
+<a href="index.html">首頁</a>
+<a href="results.html" aria-current="page">研究結果</a>
+<a href="ask.html">問答</a>
+<a href="about.html">關於研究</a>
+</div>
+<button id="theme" class="btn" type="button"></button>
+</nav></header>
+<main>
+<h1>年齡與憂鬱、焦慮、壓力的關係</h1>
+<p class="desc">DASS-42 由 42 題組成，每題以 0–3 分計分，憂鬱、焦慮、壓力各 14 題，分量表總分範圍為 0–42，分數越高表示症狀越嚴重。</p>
+<div class="bar"><button id="refresh" class="btn" type="button">重新整理頁面</button><span id="status"></span></div>
+
+<div class="card ctrl">
+  <div><b>圖表</b>
+    <label><input type="radio" name="chart" value="mean" checked>年齡對各分量的平均數</label>
+    <label><input type="radio" name="chart" value="dist">各年齡層嚴重度分布</label>
+  </div>
+  <div id="ctrlMean"><b>分量表</b>
+    <label><input type="checkbox" class="cb" value="0" checked>憂鬱</label>
+    <label><input type="checkbox" class="cb" value="1" checked>焦慮</label>
+    <label><input type="checkbox" class="cb" value="2" checked>壓力</label>
+  </div>
+  <div id="ctrlDist" hidden><b>分量表</b>
+    <label><input type="radio" name="sc" value="0" checked>憂鬱</label>
+    <label><input type="radio" name="sc" value="1">焦慮</label>
+    <label><input type="radio" name="sc" value="2">壓力</label>
+  </div>
+</div>
+<div class="card"><h2 id="ct"></h2><div id="chart"></div><div class="legend" id="legend"></div></div>
+<div class="card"><h2>統計表格</h2><div class="tw"><table id="tbl"></table></div></div>
+<div class="card note"><h2>註解</h2><ul id="notes"></ul></div>
+</main>
+<div id="tip"></div>
+<footer class="site-footer"><div>第 1 組｜組員：陳政諭</div></footer>
+<script>
+const PUB_URL="https://docs.google.com/spreadsheets/d/e/2PACX-1vTzQlH5vfj9J0u1-NffFTSwn__QG1A6Cf_HQIqnwWXXvGfRyL-P6gadGTorGCowQu7wWsjyiLP2O_F1/pub?gid=0&single=true&output=csv";
+// 內建快照：試算表無法連線時使用
+const SNAP=[
+["7–12",0,[0,0,0],[0,0,0],[[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]]],
+["13–17",689,[24.86066763,19.94484761,24.65457184],[11.7649351,10.35081618,10.12981066],[[92,36,115,130,316],[93,37,100,110,349],[129,66,145,190,159]]],
+["18–29",2908,[20.23555708,15.71973865,20.62654746],[11.90464412,9.76314946,10.17227646],[[666,298,575,476,893],[692,219,574,450,973],[892,370,694,588,364]]],
+["30–44",431,[17.05568445,11.08816705,18.09512761],[12.6237745,9.217860526,10.79352732],[[157,46,65,49,114],[196,38,77,44,76],[180,67,64,71,49]]],
+["45–64",133,[14.33834586,7.744360902,15.84962406],[12.45104792,7.875599193,10.38610395],[[64,13,21,11,24],[81,12,17,9,14],[71,14,22,17,9]]],
+["65–90",14,[16.78571429,9.285714286,17],[14.66119195,9.611119933,12.05117294],[[7,1,1,1,4],[8,1,2,0,3],[6,3,1,2,2]]]
+].map(r=>({lab:r[0],n:r[1],m:r[2],sd:r[3],cnt:r[4]}));
+const NAMES=["憂鬱","焦慮","壓力"], COLS={light:["#3b6fb6","#d9822b","#3a9a6b"],dark:["#6ea8ff","#ffa24d","#4fd18f"]};
+let COL=COLS.light, RAW=SNAP, G=[], TOTAL=0, SORT={key:"g",dir:-1};
+const LV=["正常","輕度","中度","重度","極重度"], LC=["#cfe8d5","#f2e29a","#f4b66a","#e5766b","#a52a3a"];
+const $=s=>document.querySelector(s), tip=$("#tip");
+const f=(x,d=2)=>isNaN(x)?"—":x.toFixed(d);
+const num=x=>parseFloat(String(x).replace(/,/g,""));
+
+function parseCSV(t){const rows=[];let r=[],c="",q=false;
+  for(let i=0;i<t.length;i++){const ch=t[i];
+    if(q){if(ch==='"'){if(t[i+1]==='"'){c+='"';i++;}else q=false;}else c+=ch;}
+    else if(ch==='"')q=true; else if(ch===","){r.push(c);c="";}
+    else if(ch==="\n"){r.push(c);rows.push(r);r=[];c="";} else if(ch!=="\r")c+=ch;}
+  r.push(c);rows.push(r);return rows;}
+function parseSheet(rows){
+  const cell=(r,i)=>(rows[r]&&rows[r][i]||"").trim();
+  const h=rows.findIndex(r=>(r[0]||"").trim()==="年齡層"&&(r[1]||"").trim()==="下限");
+  if(h<0)throw new Error("找不到統計表");
+  const gs=[];
+  for(let i=h+1;i<rows.length;i++){const lab=cell(i,0);if(!lab||lab==="總計")break;
+    gs.push({lab,n:num(cell(i,3)),m:[4,6,8].map(c=>num(cell(i,c))),sd:[5,7,9].map(c=>num(cell(i,c))),cnt:[null,null,null]});}
+  NAMES.forEach((nm,k)=>{
+    const t=rows.findIndex(r=>(r[0]||"").includes(nm+"等級人數"));
+    if(t<0)throw new Error("找不到"+nm+"等級表");
+    for(let i=t+2;i<rows.length&&cell(i,0);i++){
+      const g=gs.find(x=>x.lab===cell(i,0));
+      if(!g)break;
+      g.cnt[k]=[1,2,3,4,5].map(c=>num(cell(i,c))||0);}
+  });
+  gs.forEach(g=>g.cnt=g.cnt.map(c=>c||[0,0,0,0,0]));
+  if(!gs.length||gs.some(g=>isNaN(g.n)))throw new Error("資料格式不符");
+  return gs;
+}
+function build(){
+  G=RAW.filter(g=>g.n>0).map((g,i)=>({...g,st:[0,1,2].map(k=>{
+    const n=g.n,m=g.m[k],sd=g.sd[k],df=n-1,z=1.96;
+    const t=df>0?z+(z**3+z)/(4*df)+(5*z**5+16*z**3+3*z)/(96*df*df):NaN;
+    const h=t*sd/Math.sqrt(n);return {m,sd,lo:m-h,hi:m+h,cnt:g.cnt[k]};})}));
+  TOTAL=G.reduce((a,g)=>a+g.n,0);
+}
+let SRC="內建快照";
+const LIMIT_N=2, LIMIT_MS=5000; // 5 秒內最多更新 2 次
+let CLICKS=[];
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+async function fetchSheet(){
+  const res=await fetch(PUB_URL);
+  if(!res.ok)throw new Error("HTTP "+res.status);
+  const text=await res.text();
+  try{return {rows:parseSheet(parseCSV(text)),text};}
+  catch(e){e.message+="；收到的內容開頭："+(text.trim().slice(0,40)||"（空白）");throw e;}
+}
+async function load(){
+  const b=$("#refresh");b.disabled=true;b.textContent="更新中…";
+  let err=null;
+  for(let a=1;a<=4;a++){
+    if(a>1){$("#status").textContent="試算表尚未就緒，第 "+a+" 次嘗試…";await wait(1500*(a-1));}
+    try{
+      const r=await fetchSheet();RAW=r.rows;SRC="試算表";
+      try{localStorage.setItem("dassCsv",r.text);}catch(e){}
+      $("#status").textContent="已從試算表更新（"+new Date().toLocaleTimeString("zh-TW")+"）";err=null;break;
+    }catch(e){err=e;}
+  }
+  if(err)$("#status").textContent="無法讀取試算表（"+err.message+"），目前顯示"+SRC+"的資料。";
+  build();render();b.disabled=false;b.textContent="重新整理頁面";
+}
+function showTip(e,t){tip.textContent=t;tip.style.display="block";tip.style.left=Math.min(e.clientX+14,innerWidth-200)+"px";tip.style.top=(e.clientY+14)+"px";}
+function hideTip(){tip.style.display="none";}
+function svgEl(t,a,p){const e=document.createElementNS("http://www.w3.org/2000/svg",t);for(const k in a)e.setAttribute(k,a[k]);if(p)p.appendChild(e);return e;}
+function txt(p,x,y,s,a){const e=svgEl("text",{x,y,"text-anchor":a||"middle"},p);e.textContent=s;return e;}
+const sel=()=>[...document.querySelectorAll(".cb")].filter(c=>c.checked).map(c=>+c.value);
+const mode=()=>document.querySelector('input[name=chart]:checked').value;
+const oneSc=()=>+document.querySelector('input[name=sc]:checked').value;
+
+function drawMean(){
+  const ks=sel(),W=820,H=440,L=56,R=20,T=24,B=60,pw=W-L-R,ph=H-T-B,N=Math.max(G.length,1);
+  const svg=svgEl("svg",{viewBox:`0 0 ${W} ${H}`});
+  const Y=v=>T+ph*(1-v/42), X=i=>L+pw*(i+0.5)/N;
+  for(let v=0;v<=42;v+=6){svgEl("line",{x1:L,x2:W-R,y1:Y(v),y2:Y(v),class:"grid"},svg);txt(svg,L-8,Y(v)+4,v,"end");}
+  svgEl("line",{x1:L,x2:L,y1:T,y2:T+ph,class:"axis"},svg);
+  svgEl("line",{x1:L,x2:W-R,y1:T+ph,y2:T+ph,class:"axis"},svg);
+  txt(svg,L+pw/2,H-12,"年齡層");
+  const yl=txt(svg,16,T+ph/2,"分量表總分（0–42）");yl.setAttribute("transform",`rotate(-90 16 ${T+ph/2})`);
+  txt(svg,W-R,11,"總樣本數 n="+TOTAL,"end");
+  G.forEach((g,i)=>txt(svg,X(i),T+ph+20,g.lab));
+  ks.forEach(k=>{
+    svgEl("polyline",{points:G.map((g,i)=>`${X(i)},${Y(g.st[k].m)}`).join(" "),fill:"none",stroke:COL[k],"stroke-width":2},svg);
+    G.forEach((g,i)=>{const s=g.st[k],x=X(i),lo=Math.max(0,s.lo),hi=Math.min(42,s.hi);
+      if(!isNaN(lo)){svgEl("line",{x1:x,x2:x,y1:Y(lo),y2:Y(hi),stroke:COL[k],"stroke-width":1.5},svg);
+        [lo,hi].forEach(v=>svgEl("line",{x1:x-5,x2:x+5,y1:Y(v),y2:Y(v),stroke:COL[k],"stroke-width":1.5},svg));}
+      svgEl("circle",{cx:x,cy:Y(s.m),r:4.5,fill:COL[k]},svg);
+      const h=svgEl("circle",{cx:x,cy:Y(s.m),r:12,fill:"transparent"},svg);
+      const t=`${NAMES[k]}（${g.lab}）\n平均數：${f(s.m)}\n標準差：${f(s.sd)}`;
+      h.onmousemove=e=>showTip(e,t);h.onmouseleave=hideTip;});
+  });
+  $("#chart").replaceChildren(svg);
+  $("#ct").textContent="年齡對各分量的平均數（誤差線為 95% 信賴區間）";
+  $("#legend").innerHTML=ks.map(k=>`<span><i style="background:${COL[k]}"></i>${NAMES[k]}</span>`).join("");
+}
+function drawDist(){
+  const k=oneSc(),W=820,H=380,L=100,R=24,T=24,B=56,pw=W-L-R,ph=H-T-B,N=Math.max(G.length,1),bh=ph/N*0.62;
+  const svg=svgEl("svg",{viewBox:`0 0 ${W} ${H}`});
+  const X=p=>L+pw*p/100;
+  for(let p=0;p<=100;p+=20){svgEl("line",{x1:X(p),x2:X(p),y1:T,y2:T+ph,class:"grid"},svg);txt(svg,X(p),T+ph+18,p+"%");}
+  txt(svg,L+pw/2,H-10,"各嚴重度等級占該年齡層的百分比");
+  txt(svg,W-R,11,"總樣本數 n="+TOTAL,"end");
+  G.forEach((g,i)=>{
+    const y=T+ph/N*(i+0.5)-bh/2,sum=g.st[k].cnt.reduce((a,b)=>a+b,0);
+    txt(svg,L-8,y+bh/2+4,g.lab,"end");
+    let acc=0;
+    g.st[k].cnt.forEach((c,j)=>{const p=sum?c/sum*100:0;
+      const r=svgEl("rect",{x:X(acc),y,width:Math.max(0,X(p)-L),height:bh,fill:LC[j],class:"seg"},svg);
+      const t=`${LV[j]}\n${f(p,1)}%`;r.onmousemove=e=>showTip(e,t);r.onmouseleave=hideTip;acc+=p;});
+  });
+  $("#chart").replaceChildren(svg);
+  $("#ct").textContent=`各年齡層嚴重度分布：${NAMES[k]}`;
+  $("#legend").innerHTML=LV.map((l,j)=>`<span><i style="background:${LC[j]}"></i>${l}</span>`).join("");
+}
+function drawTable(){
+  const m=mode()==="mean",ks=m?sel():[oneSc()],R=[];
+  for(let i=G.length-1;i>=0;i--)ks.forEach(k=>{
+    const g=G[i],s=g.st[k],r={g:i,k,lab:g.lab,n:g.n};
+    if(m)Object.assign(r,{m:s.m,sd:s.sd,lo:s.lo,hi:s.hi});
+    else{const sum=s.cnt.reduce((a,b)=>a+b,0);s.cnt.forEach((c,j)=>{r["c"+j]=c;r["p"+j]=sum?c/sum*100:NaN;});}
+    R.push(r);});
+  const cols=m?[["g","年齡層"],["k","分量表"],["n","人數"],["m","平均數"],["sd","標準差"],["lo","95% CI 下限"],["hi","95% CI 上限"]]
+              :[["g","年齡層"],["k","分量表"],["n","人數"],...LV.map((l,j)=>["p"+j,l+" 人數（%）"])];
+  if(!cols.some(c=>c[0]===SORT.key))SORT={key:"g",dir:-1};
+  const v=x=>isNaN(x)?-Infinity:x;
+  const rows=R.map((r,i)=>[r,i]).sort((a,b)=>(v(a[0][SORT.key])-v(b[0][SORT.key]))*SORT.dir||a[1]-b[1]).map(x=>x[0]);
+  let h="<tr>"+cols.map(([key,lab])=>`<th data-k="${key}" title="點擊排序">${lab}${SORT.key===key?(SORT.dir>0?" ▲":" ▼"):""}</th>`).join("")+"</tr>";
+  rows.forEach(r=>{h+=`<tr><td>${r.lab}</td><td>${NAMES[r.k]}</td><td>${r.n}</td>`+(m
+    ?`<td>${f(r.m)}</td><td>${f(r.sd)}</td><td>${f(r.lo)}</td><td>${f(r.hi)}</td>`
+    :LV.map((_,j)=>`<td>${r["c"+j]}（${f(r["p"+j],1)}%）</td>`).join(""))+"</tr>";});
+  const t=$("#tbl");t.innerHTML=h;
+  t.querySelectorAll("th").forEach(th=>th.onclick=()=>{const key=th.dataset.k;
+    SORT=SORT.key===key?{key,dir:-SORT.dir}:{key,dir:key==="g"?-1:1};drawTable();});
+}
+function drawNotes(){
+  const m=mode()==="mean";
+  const sp=m?[
+    "<b>平均數：</b>該年齡層在該分量表的平均總分（0–42），越高表示症狀越嚴重。",
+    "<b>標準差：</b>組內分數的離散程度，越大表示個體差異越大。",
+    "<b>95% 信賴區間：</b>由試算表的平均數、標準差與人數，以 t 分布計算（平均數 ± t × 標準差 ÷ √n）。兩組區間不重疊通常表示差異明顯，但重疊不代表無差異。圖中誤差線超出 0–42 的部分已截斷。"
+  ]:[
+    "<b>嚴重度：</b>分為正常、輕度、中度、重度、極重度，各等級人數取自來源試算表，切點以試算表的設定為準。",
+    "<b>百分比：</b>該等級人數占該年齡層人數的比例，每條長條加總為 100%。"
+  ];
+  $("#notes").innerHTML=[...sp,
+    "<b>資料來源：</b>由來源試算表即時讀取，樣本篩選與分組規則以試算表為準；人數為 0 的年齡層不顯示。總樣本數 "+TOTAL+"。",
+    "<b>注意：</b>資料來自自願填答的網路問卷，不能代表一般人口，結果也不代表因果。人數較少的年齡層估計較不穩定。"
+  ].map(s=>`<li>${s}</li>`).join("");
+}
+function render(){
+  const m=mode()==="mean";$("#ctrlMean").hidden=!m;$("#ctrlDist").hidden=m;
+  m?drawMean():drawDist();drawTable();drawNotes();
+}
+function initTheme(){let t;try{t=localStorage.getItem("dassTheme");}catch(e){}
+  return t||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");}
+function setTheme(t){document.documentElement.dataset.theme=t;COL=COLS[t];
+  $("#theme").textContent=t==="dark"?"☀️ 淺色模式":"🌙 暗黑模式";
+  try{localStorage.setItem("dassTheme",t);}catch(e){}render();}
+document.querySelectorAll('input[name=chart],input[name=sc]').forEach(e=>e.onchange=render);
+document.querySelectorAll(".cb").forEach(e=>e.onchange=()=>{if(!sel().length)e.checked=true;render();});
+$("#refresh").onclick=()=>{
+  const now=Date.now();CLICKS=CLICKS.filter(t=>now-t<LIMIT_MS);
+  if(CLICKS.length>=LIMIT_N){
+    const sec=Math.ceil((CLICKS[0]+LIMIT_MS-now)/1000);
+    $("#status").textContent="5 秒內最多只能更新 "+LIMIT_N+" 次，請 "+sec+" 秒後再試。";return;}
+  CLICKS.push(now);load();
+};
+$("#theme").onclick=()=>setTheme(document.documentElement.dataset.theme==="dark"?"light":"dark");
+try{const c=localStorage.getItem("dassCsv");if(c){RAW=parseSheet(parseCSV(c));SRC="上次成功載入";}}catch(e){}
+build();setTheme(initTheme());
+load();
+</script>
+</body>
+</html>
